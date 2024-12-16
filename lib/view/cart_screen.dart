@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CartScreen extends StatefulWidget {
   final List<Map<String, dynamic>> products;
@@ -17,7 +18,39 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  // Calculate the total cart price
+  @override
+  void initState() {
+    super.initState();
+    _loadCartState(); // Load saved cart state
+  }
+
+  Future<void> _saveCartState() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> cartData = widget.products
+        .map((product) => '${product['name']}:${product['quantity']}')
+        .toList();
+    await prefs.setStringList('cartState', cartData);
+  }
+
+  Future<void> _loadCartState() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> cartData = prefs.getStringList('cartState') ?? [];
+    setState(() {
+      for (String data in cartData) {
+        List<String> productData = data.split(':');
+        String productName = productData[0];
+        int quantity = int.parse(productData[1]);
+
+        for (var product in widget.products) {
+          if (product['name'] == productName) {
+            product['quantity'] = quantity;
+            break;
+          }
+        }
+      }
+    });
+  }
+
   double calculateTotalPrice() {
     double total = 0.0;
     for (var product in widget.products) {
@@ -55,24 +88,24 @@ class _CartScreenState extends State<CartScreen> {
 
     if (confirm == true) {
       clearCart();
-      widget.onCartCleared?.call(); // Notify parent to clear the cart badge
-      Navigator.of(context).pop(); // Return to previous screen
+      widget.onCartCleared?.call();
+      Navigator.of(context).pop();
     }
   }
 
-  void clearCart() {
+  void clearCart() async {
     setState(() {
       for (var product in widget.products) {
         product['quantity'] = 0;
       }
     });
-
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('cartState');
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Cart has been cleared. Thank you!")),
     );
   }
 
-  // Navigate to Product Detail Page
   void navigateToProductDetail(Map<String, dynamic> product) {
     Navigator.push(
       context,
@@ -112,7 +145,9 @@ class _CartScreenState extends State<CartScreen> {
                           icon: const Icon(Icons.remove),
                           onPressed: () {
                             widget.onQuantityUpdate(index, -1);
-                            setState(() {});
+                            setState(() {
+                              _saveCartState();
+                            });
                           },
                         ),
                         Text(product['quantity'].toString()),
@@ -120,7 +155,9 @@ class _CartScreenState extends State<CartScreen> {
                           icon: const Icon(Icons.add),
                           onPressed: () {
                             widget.onQuantityUpdate(index, 1);
-                            setState(() {});
+                            setState(() {
+                              _saveCartState();
+                            });
                           },
                         ),
                       ],
@@ -130,7 +167,6 @@ class _CartScreenState extends State<CartScreen> {
               },
             ),
           ),
-          // Display total price
           Container(
             padding: const EdgeInsets.all(16.0),
             child: Row(

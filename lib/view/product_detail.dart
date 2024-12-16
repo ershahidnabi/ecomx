@@ -21,29 +21,66 @@ class _ProductDetailState extends State<ProductDetail> {
   @override
   void initState() {
     super.initState();
-    quantity = widget.product['quantity']; // Initial quantity from passed data
+    _loadProductQuantity(); // Load quantity from SharedPreferences
+  }
+
+  // Load product quantity from SharedPreferences
+  Future<void> _loadProductQuantity() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> cartData = prefs.getStringList('cartState') ?? [];
+    for (String data in cartData) {
+      List<String> productData = data.split(':');
+      if (productData[0] == widget.product['name']) {
+        setState(() {
+          quantity = int.parse(productData[1]);
+        });
+        return;
+      }
+    }
+    quantity = widget.product['quantity']; // Default if not found
+  }
+
+  // Save product quantity to SharedPreferences
+  Future<void> _saveProductQuantity() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> cartData = prefs.getStringList('cartState') ?? [];
+    bool productFound = false;
+
+    for (int i = 0; i < cartData.length; i++) {
+      List<String> productData = cartData[i].split(':');
+      if (productData[0] == widget.product['name']) {
+        cartData[i] = '${widget.product['name']}:$quantity';
+        productFound = true;
+        break;
+      }
+    }
+
+    if (!productFound) {
+      cartData.add('${widget.product['name']}:$quantity');
+    }
+
+    await prefs.setStringList('cartState', cartData);
   }
 
   void updateQuantity(int change) {
     setState(() {
-      quantity = (quantity + change)
-          .clamp(0, 99); // Ensure quantity stays between 0 and 99
-      widget.onQuantityChange(change); // Update quantity in HomeScreen as well
+      quantity = (quantity + change).clamp(0, 99);
     });
+    widget.onQuantityChange(change);
+    _saveProductQuantity(); // Save to SharedPreferences
   }
 
-  // Method to add the product to the cart (similar to HomeScreen)
   void addToCart() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> cart = prefs.getStringList('cart') ?? [];
-    if (!cart.contains(widget.product['name'])) {
-      cart.add(
-          widget.product['name']); // Add product to cart if not already present
-      await prefs.setStringList('cart', cart);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${widget.product['name']} added to cart')),
-      );
+    if (quantity == 0) {
+      setState(() {
+        quantity = 1;
+      });
+      widget.onQuantityChange(1);
+      _saveProductQuantity(); // Save to SharedPreferences
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${widget.product['name']} added to cart')),
+    );
   }
 
   @override
@@ -108,11 +145,7 @@ class _ProductDetailState extends State<ProductDetail> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () {
-                // Add product to cart
-                addToCart();
-                Navigator.pop(context); // Go back to the HomeScreen
-              },
+              onPressed: addToCart,
               child: const Text('Add to Cart'),
             ),
           ],
