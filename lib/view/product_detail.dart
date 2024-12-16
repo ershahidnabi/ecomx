@@ -78,9 +78,14 @@ class _ProductDetailState extends State<ProductDetail> {
       widget.onQuantityChange(1);
       _saveProductQuantity(); // Save to SharedPreferences
     }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${widget.product['name']} added to cart')),
     );
+
+    // Navigate to the home page after adding the product to the cart
+    Navigator.pop(
+        context); // This will pop the current screen and return to the previous screen (typically home).
   }
 
   @override

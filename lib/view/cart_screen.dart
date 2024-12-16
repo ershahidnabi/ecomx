@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'product_detail.dart'; // Import the ProductDetail widget
 
 class CartScreen extends StatefulWidget {
   final List<Map<String, dynamic>> products;
@@ -22,6 +23,11 @@ class _CartScreenState extends State<CartScreen> {
   void initState() {
     super.initState();
     _loadCartState(); // Load saved cart state
+  }
+
+  // Checks if the cart is empty
+  bool get isCartEmpty {
+    return widget.products.every((product) => product['quantity'] <= 0);
   }
 
   Future<void> _saveCartState() async {
@@ -62,6 +68,14 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Future<void> showCheckoutDialog() async {
+    if (isCartEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("Your cart is empty! Please add items to proceed.")),
+      );
+      return; // Prevent showing the checkout dialog if the cart is empty
+    }
+
     final bool? confirm = await showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -107,10 +121,20 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void navigateToProductDetail(Map<String, dynamic> product) {
+    // Navigate to ProductDetail directly
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ProductDetailPage(product: product),
+        builder: (context) => ProductDetail(
+          product: product,
+          onQuantityChange: (int change) {
+            // Update quantity from ProductDetail
+            widget.onQuantityUpdate(widget.products.indexOf(product), change);
+            setState(() {
+              _saveCartState();
+            });
+          },
+        ),
       ),
     );
   }
@@ -173,7 +197,7 @@ class _CartScreenState extends State<CartScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  "Total:",
+                  "Total: ",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
@@ -190,7 +214,9 @@ class _CartScreenState extends State<CartScreen> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton(
-              onPressed: showCheckoutDialog,
+              onPressed: isCartEmpty
+                  ? null
+                  : showCheckoutDialog, // Disable if cart is empty
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blueAccent,
                 padding:
@@ -200,51 +226,6 @@ class _CartScreenState extends State<CartScreen> {
                 "Check Out",
                 style: TextStyle(color: Colors.white, fontSize: 16),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ProductDetailPage extends StatelessWidget {
-  final Map<String, dynamic> product;
-
-  const ProductDetailPage({required this.product, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(product['name']),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Image.asset(product['image'], height: 200, width: 200),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              product['name'],
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              "Price: ₹${product['price']}",
-              style: const TextStyle(fontSize: 20, color: Colors.green),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              "Quantity: ${product['quantity']}",
-              style: const TextStyle(fontSize: 18),
             ),
           ),
         ],
